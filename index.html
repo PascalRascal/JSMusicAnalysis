@@ -12,7 +12,7 @@
 		<p>For more information, read the blog post <a href="http://joesul.li/van/beat-detection-using-web-audio/">Beat Detection Using JavaScript and the Web Audio API</a>, from where I've taken the code to perform the track analysis,
 			and <a href="https://jmperezperez.com/bpm-detection-javascript/">José M. Pérez's Blog Post</a>, who wrote an implmentation with spotify's api which I then modified for use with user files. Currently trying to implement more in-depth
         musical analysis using their work as a basis.
-			
+
 		</p>
 		<form>
             <input type="file" id="drop_zone" onchange="uploadFunction()">Drop Files Here Fam</input>
@@ -32,18 +32,7 @@
 
 		</div>
 
-		<p>How this works:</p>
-		<ol>
-			<li>Search for the track on <a href="https://developer.spotify.com/web-api/search-item/">Spotify using their Web API</a></li>
-			<li>Use the 30s preview MP3 as the source for the Audio API</li>
-			<li>Apply a lowbass filter</li>
-			<li>Find peaks</li>
-			<li>Count intervals between peaks</li>
-			<li>Group them</li>
-		</ol>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.2.2/Chart.bundle.min.js"></script>
-		<script src="scripts/spotify-web-api.js"></script>
+  	<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.2.2/Chart.bundle.min.js"></script>
 		<script src="scripts/script.js"></script>
-        <script src="scripts/mp3.js"></script>
 	</body>
 </html>

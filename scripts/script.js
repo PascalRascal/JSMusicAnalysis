@@ -1,4 +1,4 @@
-﻿/* global SpotifyWebApi */
+﻿ /* global SpotifyWebApi */
 /*
   The code for finding out the BPM / tempo is taken from this post:
   http://tech.beatport.com/2014/web-audio/beat-detection-using-web-audio/
@@ -6,16 +6,9 @@
 
 'use strict';
 
-var fs = require('fs'),
-    id3 = require('id3js'),
-    mp3parser = require('mp3-parser'),
-    AV = require('av');
-require('mp3');
 
-var spotifyApi = new SpotifyWebApi();
-spotifyApi.getToken().then(function (response) {
-    spotifyApi.setAccessToken(response.token);
-});
+
+
 
 var queryInput = document.querySelector('#query'),
     result = document.querySelector('#result'),
@@ -46,7 +39,7 @@ audioTag.addEventListener('playing', updatePlayLabel);
 audioTag.addEventListener('pause', updatePlayLabel);
 audioTag.addEventListener('ended', updatePlayLabel);
 
-playButton.addEventListener('click', function () {
+playButton.addEventListener('click', function() {
     if (audioTag.paused) {
         audioTag.play();
     } else {
@@ -121,18 +114,18 @@ function getPeaks(data) {
 
     // We then sort the peaks according to volume...
 
-    peaks.sort(function (a, b) {
+    peaks.sort(function(a, b) {
         return b.volume - a.volume;
     });
 
     // ...take the loundest half of those...
-    //Modify the 
+    //Modify the
 
     peaks = peaks.splice(0, peaks.length * peakPercentage);
 
     // ...and re-sort it back based on position.
 
-    peaks.sort(function (a, b) {
+    peaks.sort(function(a, b) {
         return a.position - b.position;
     });
 
@@ -153,7 +146,7 @@ function getIntervals(peaks) {
 
     var groups = [];
 
-    peaks.forEach(function (peak, index) {
+    peaks.forEach(function(peak, index) {
         if (peaks[index + 1] && peaks[index - 1]) {
             peak.distanceToLast = peaks[index].position - peak.position;
             peak.distanceToNext = peaks[index + 1].position - peak.position;
@@ -190,9 +183,10 @@ function getIntervals(peaks) {
         }
     });
 
-    peaks.forEach(function (peak, index) {
+    peaks.forEach(function(peak, index) {
         //Compares the peak distance to the next 10 peaks
-        for (var i = 1; (index + i) < peaks.length && i < 20; i++) {
+        for (var i = 1;
+            (index + i) < peaks.length && i < 20; i++) {
             var peakDistance = peaks[index + i].position - peak.position;
             var group = {
                 //This tempo calculation is WRONG
@@ -202,11 +196,11 @@ function getIntervals(peaks) {
                 count: 1
             };
 
-            //Keep itwith 90-180 BPM range 
+            //Keep itwith 90-180 BPM range
             while (group.tempo < 90) {
                 group.tempo *= 2;
             }
-            
+
             while (group.tempo > 180) {
                 group.tempo /= 2;
             }
@@ -216,9 +210,9 @@ function getIntervals(peaks) {
 
             //If thhis BPM has been recorded, add to group
             //Otherwise, push the group to be recorded
-            if (!(groups.some(function (interval) {
-                return (interval.tempo === group.tempo ? interval.count++ : 0);
-            }))) {
+            if (!(groups.some(function(interval) {
+                    return (interval.tempo === group.tempo ? interval.count++ : 0);
+                }))) {
                 groups.push(group);
             }
         }
@@ -227,7 +221,7 @@ function getIntervals(peaks) {
     return groups;
 }
 
-var getMusicData = function (musicArrayBuffer, songsize) {
+var getMusicData = function(musicArrayBuffer, songsize) {
 
     // Create offline context
     //http://stackoverflow.com/questions/5140085/how-to-get-sampling-rate-and-frequency-of-music-file-mp3-in-android
@@ -235,7 +229,7 @@ var getMusicData = function (musicArrayBuffer, songsize) {
     var OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     var offlineContext = new OfflineContext(2, songsize, 44100);
 
-    offlineContext.decodeAudioData(musicArrayBuffer, function (buffer) {
+    offlineContext.decodeAudioData(musicArrayBuffer, function(buffer) {
 
         // Create buffer source
         var source = offlineContext.createBufferSource();
@@ -276,7 +270,7 @@ var getMusicData = function (musicArrayBuffer, songsize) {
         offlineContext.startRendering();
     });
 
-    offlineContext.oncomplete = function (e) {
+    offlineContext.oncomplete = function(e) {
         var buffer = e.renderedBuffer;
         var peaks = getPeaks([buffer.getChannelData(0), buffer.getChannelData(1)]);
         var groups = getIntervals(peaks);
@@ -285,7 +279,7 @@ var getMusicData = function (musicArrayBuffer, songsize) {
         svg.innerHTML = '';
         var svgNS = 'http://www.w3.org/2000/svg';
         var rect;
-        peaks.forEach(function (peak) {
+        peaks.forEach(function(peak) {
             rect = document.createElementNS(svgNS, 'rect');
             rect.setAttributeNS(null, 'x', (100 * peak.position / buffer.length) + '%');
             rect.setAttributeNS(null, 'y', 0);
@@ -303,7 +297,7 @@ var getMusicData = function (musicArrayBuffer, songsize) {
 
         svg.innerHTML = svg.innerHTML; // force repaint in some browsers
 
-        var top = groups.sort(function (intA, intB) {
+        var top = groups.sort(function(intA, intB) {
             return intB.count - intA.count;
         }).splice(0, 5);
 
@@ -312,15 +306,12 @@ var getMusicData = function (musicArrayBuffer, songsize) {
             ' with ' + top[0].count + ' samples.</div>';
 
         text.innerHTML += '<div class="small">Other options are ' +
-            top.slice(1).map(function (group) {
+            top.slice(1).map(function(group) {
                 return group.tempo + ' BPM (' + group.count + ')';
             }).join(', ') +
             '</div>';
 
-        var printENBPM = function (tempo) {
-            text.innerHTML += '<div class="small">The tempo according to Spotify is ' +
-                tempo + ' BPM</div>';
-        };
+
 
         result.style.display = 'block';
     };
@@ -331,16 +322,16 @@ var getMusicData = function (musicArrayBuffer, songsize) {
 
 var fileUpload = document.getElementById("drop_zone");
 
-var uploadFunction = function () {
+var uploadFunction = function() {
     console.log("File Submitted!");
-    
+
     var musicFile = fileUpload.files[0];
     console.log(musicFile);
     //TODO: Prevent ppl from fucking up by uploading other types of files
 
     //Put the user file into the <audio> tag for playback
     var dataUrlReader = new FileReader();
-    dataUrlReader.onload = function () {
+    dataUrlReader.onload = function() {
         audioTag.src = dataUrlReader.result;
     }
     dataUrlReader.readAsDataURL(musicFile);
@@ -348,10 +339,10 @@ var uploadFunction = function () {
     //Read the user file into a format that can we can work with, an array buffer
     var arrayBufferReader = new FileReader();
 
-    arrayBufferReader.onload = function () {
+    arrayBufferReader.onload = function() {
         getMusicData(arrayBufferReader.result, arrayBufferReader.result.byteLength);
     }
-    
+
     arrayBufferReader.readAsArrayBuffer(musicFile);
 
     /*
@@ -377,7 +368,7 @@ var uploadFunction = function () {
             console.log(mp3tags);
 
         }
-    
+
 
     });
     */
@@ -403,7 +394,9 @@ function getArrayBufferFromURI(dataURI) {
     }
 
     // write the ArrayBuffer to a blob, and you're done
-    var blob = new Blob([ab], { type: mimeString });
+    var blob = new Blob([ab], {
+        type: mimeString
+    });
     return ab;
 
     // Old code
@@ -415,7 +408,7 @@ function getArrayBufferFromURI(dataURI) {
 //Performs KClustering on Data
 function kCluster(clusterCount, peaks) {
     var clusters = [];
-    var cluster = function () {
+    var cluster = function() {
         this.centroid = {};
         this.entries = [];
     };
@@ -442,5 +435,3 @@ function kCluster(clusterCount, peaks) {
 
 
 }
-
-
