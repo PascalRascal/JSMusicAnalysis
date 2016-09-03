@@ -1,13 +1,15 @@
-﻿ /* global SpotifyWebApi */
 /*
   The code for finding out the BPM / tempo is taken from this post:
   http://tech.beatport.com/2014/web-audio/beat-detection-using-web-audio/
  */
 
+/* TODO List
+ * 1. Remove metadata from songs before analyzing
+ * 2. Improve Visualization
+ * 3. Add BPM for each section
+ * 4. Clean Up Code
+ */
 'use strict';
-
-
-
 
 
 var queryInput = document.querySelector('#query'),
@@ -16,6 +18,7 @@ var queryInput = document.querySelector('#query'),
     audioTag = document.querySelector('#audio'),
     playButton = document.querySelector('#play'),
     audioPreview = document.getElementById('musicPreview');
+var sections = [];
 
 function updateProgressState() {
     if (audioTag.paused) {
@@ -95,7 +98,6 @@ function getPeaks(data) {
         }
     }
     avgVolume = totalVolume / size;
-    console.log(avgVolume);
 
 
     for (var i = 0; i < parts; i++) {
@@ -140,31 +142,64 @@ function getIntervals(peaks) {
     // those peaks (the distance of the intervals) we can calculate the BPM of
     // that particular interval.
 
-    //wtf is group.count
     // The interval that is seen the most should have the BPM that corresponds
     // to the track itself.
 
     var groups = [];
+    var sumDistances = 0;
+    var avgDistance;
+
+    var chartData = [];
+    for (var i = 0; i < peaks.length; i++) {
+        var positionInSeconds = peaks[i].position / 44100;
+        var distanceToNextInSeconds = peaks[i].distanceToNext / 44100;
+        peaks[i].positionInSeconds = positionInSeconds;
+        chartData.push({
+            x: positionInSeconds,
+            y: distanceToNextInSeconds
+        })
+    }
+
 
     peaks.forEach(function(peak, index) {
         if (peaks[index + 1] && peaks[index - 1]) {
-            peak.distanceToLast = peaks[index].position - peak.position;
-            peak.distanceToNext = peaks[index + 1].position - peak.position;
+            peak.distanceToNext = peaks[index + 1].position - peak.position
+            peak.distanceToLast = peak.position - peaks[index - 1].position;
             peak.distanceBetween = peak.distanceToNext - peak.distanceToLast
         } else {
             peak.distanceToNext = 0;
         }
+        sumDistances = sumDistances + peak.distanceToNext;
     });
+
+
+    avgDistance = sumDistances / peaks.length;
+    var stdDev = getStandardDev(peaks, avgDistance);
+
+    var firstPeakDeviation = (peaks[0].position - avgDistance) / stdDev;
+    var firstSection = new section(0, firstPeakDeviation);
+    sections.push(firstSection);
+    var sectionMargin = 2;
+
+
+    peaks.forEach(function(peak, index) {
+        var peakDeviation = (peak.distanceToNext - avgDistance) / stdDev;
+
+        if (Math.abs(sections[sections.length - 1].stdDev - peakDeviation) > sectionMargin && peak.distanceToNext != 0) {
+            sections.push(new section(peak.position, peakDeviation));
+        }
+    });
+    console.log(sections);
+
+
+    console.log(getStandardDev(peaks, avgDistance));
+    console.log(avgDistance);
+    console.log(avgDistance / 44100);
 
     //Draw the data to chart
     var ctx = document.getElementById("myChart");
-    var chartData = [];
-    for (var i = 0; i < peaks.length; i++) {
-        chartData.push({
-            x: peaks[i].position,
-            y: peaks[i].distanceToNext
-        })
-    }
+
+    /*
     var scatterChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -182,6 +217,7 @@ function getIntervals(peaks) {
             }
         }
     });
+    */
 
     peaks.forEach(function(peak, index) {
         //Compares the peak distance to the next 10 peaks
@@ -217,7 +253,6 @@ function getIntervals(peaks) {
             }
         }
     });
-    console.log(groups);
     return groups;
 }
 
@@ -279,6 +314,22 @@ var getMusicData = function(musicArrayBuffer, songsize) {
         svg.innerHTML = '';
         var svgNS = 'http://www.w3.org/2000/svg';
         var rect;
+        //Draw the peaks
+        sections.forEach(function(section, index) {
+            rect = document.createElementNS(svgNS, 'rect');
+            rect.setAttributeNS(null, 'x', (100 * section.start / buffer.length) + '%');
+            rect.setAttributeNS(null, 'y', 0);
+            rect.setAttributeNS(null, 'fill', section.color);
+            if (section[index + 1]) {
+                rect.setAttributeNS(null, 'width', ((sections[index + 1].start - section.start)));
+            } else {
+                rect.setAttributeNS(null, 'width', (buffer.length - section.start));
+            }
+            rect.setAttributeNS(null, 'height', '100%');
+            svg.appendChild(rect);
+        });
+        //Draw the peaks
+
         peaks.forEach(function(peak) {
             rect = document.createElementNS(svgNS, 'rect');
             rect.setAttributeNS(null, 'x', (100 * peak.position / buffer.length) + '%');
@@ -287,6 +338,7 @@ var getMusicData = function(musicArrayBuffer, songsize) {
             rect.setAttributeNS(null, 'height', '100%');
             svg.appendChild(rect);
         });
+
 
         rect = document.createElementNS(svgNS, 'rect');
         rect.setAttributeNS(null, 'id', 'progress');
@@ -301,8 +353,8 @@ var getMusicData = function(musicArrayBuffer, songsize) {
             return intB.count - intA.count;
         }).splice(0, 5);
 
-        text.innerHTML = '<div id="guess">Guess for track <strong>' + "FUCK" + '</strong> by ' +
-            '<strong>' + "SHIT" + '</strong> is <strong>' + Math.round(top[0].tempo) + ' BPM</strong>' +
+        text.innerHTML = '<div id="guess">Guess for track <strong>' + "Unknown Song" + '</strong> by ' +
+            '<strong>' + "UNknown Artist" + '</strong> is <strong>' + Math.round(top[0].tempo) + ' BPM</strong>' +
             ' with ' + top[0].count + ' samples.</div>';
 
         text.innerHTML += '<div class="small">Other options are ' +
@@ -310,7 +362,6 @@ var getMusicData = function(musicArrayBuffer, songsize) {
                 return group.tempo + ' BPM (' + group.count + ')';
             }).join(', ') +
             '</div>';
-
 
 
         result.style.display = 'block';
@@ -323,10 +374,8 @@ var getMusicData = function(musicArrayBuffer, songsize) {
 var fileUpload = document.getElementById("drop_zone");
 
 var uploadFunction = function() {
-    console.log("File Submitted!");
 
     var musicFile = fileUpload.files[0];
-    console.log(musicFile);
     //TODO: Prevent ppl from fucking up by uploading other types of files
 
     //Put the user file into the <audio> tag for playback
@@ -433,5 +482,55 @@ function kCluster(clusterCount, peaks) {
 
     console.log(clusters);
 
+
+}
+
+function getStandardDev(data, dataAvg) {
+    var summation = 0;
+    if (dataAvg) {
+        data.forEach(function(item, index) {
+            summation = summation + ((item.distanceToNext - dataAvg) * (item.distanceToNext - dataAvg))
+        });
+    }
+    return Math.sqrt(summation / data.length);
+
+
+}
+
+var section = function(start, stdDev) {
+    this.start = start;
+    this.stdDev = stdDev;
+    this.color = getRandomColor();
+}
+
+
+
+function getRandomColor() {
+    var randNumber = Math.floor(Math.random() * 10);
+
+    switch (randNumber) {
+        case 0:
+            return 'pink';
+        case 1:
+            return 'orange';
+        case 2:
+            return 'gray';
+        case 3:
+            return 'white';
+        case 4:
+            return 'blue';
+        case 5:
+            return 'maroon';
+        case 6:
+            return 'aqua';
+        case 7:
+            return 'purple';
+        case 8:
+            return 'navy';
+        case 9:
+            return 'fuchsia';
+        default:
+            return 'green';
+    }
 
 }
