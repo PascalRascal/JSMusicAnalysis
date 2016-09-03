@@ -197,7 +197,7 @@ function getIntervals(peaks) {
     console.log(avgDistance / 44100);
 
     //Draw the data to chart
-    var ctx = document.getElementById("myChart");
+    //var ctx = document.getElementById("myChart");
 
     /*
     var scatterChart = new Chart(ctx, {
