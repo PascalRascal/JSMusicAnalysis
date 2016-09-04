@@ -1,3 +1,4 @@
+﻿ /* global SpotifyWebApi */
 /*
   The code for finding out the BPM / tempo is taken from this post:
   http://tech.beatport.com/2014/web-audio/beat-detection-using-web-audio/
@@ -52,7 +53,7 @@ playButton.addEventListener('click', function() {
 
 result.style.display = 'none';
 
-function getPeaks(data) {
+function getPeaks(data, samplingRate) {
 
     // What we're going to do here, is to divide up our audio into parts.
 
@@ -83,7 +84,8 @@ function getPeaks(data) {
     4. use that average to calculate the record where the beats take place
     */
 
-    var partSize = 22050,
+    //Half-Second Parts
+    var partSize = Math.round(samplingRate / 4),
         parts = data[0].length / partSize,
         peaks = [],
         peakPercentage = 0.7;
@@ -135,7 +137,7 @@ function getPeaks(data) {
     return peaks;
 }
 
-function getIntervals(peaks) {
+function getIntervals(peaks, samplingRate) {
 
     // What we now do is get all of our peaks, and then measure the distance to
     // other peaks, to create intervals.  Then based on the distance between
@@ -151,8 +153,8 @@ function getIntervals(peaks) {
 
     var chartData = [];
     for (var i = 0; i < peaks.length; i++) {
-        var positionInSeconds = peaks[i].position / 44100;
-        var distanceToNextInSeconds = peaks[i].distanceToNext / 44100;
+        var positionInSeconds = peaks[i].position / samplingRate;
+        var distanceToNextInSeconds = peaks[i].distanceToNext / samplingRate;
         peaks[i].positionInSeconds = positionInSeconds;
         chartData.push({
             x: positionInSeconds,
@@ -194,10 +196,10 @@ function getIntervals(peaks) {
 
     console.log(getStandardDev(peaks, avgDistance));
     console.log(avgDistance);
-    console.log(avgDistance / 44100);
+    console.log(avgDistance / samplingRate);
 
     //Draw the data to chart
-    //var ctx = document.getElementById("myChart");
+    var ctx = document.getElementById("myChart");
 
     /*
     var scatterChart = new Chart(ctx, {
@@ -228,7 +230,7 @@ function getIntervals(peaks) {
                 //This tempo calculation is WRONG
                 //Fix it later maybe
                 //probs not tbh
-                tempo: (60 * 44100) / (peaks[index + i].position - peak.position),
+                tempo: (60 * samplingRate) / (peaks[index + i].position - peak.position),
                 count: 1
             };
 
@@ -258,11 +260,35 @@ function getIntervals(peaks) {
 
 var getMusicData = function(musicArrayBuffer, songsize) {
 
+    var musicDataView = new DataView(musicArrayBuffer);
+    console.log(musicDataView);
+
+
+    var mp3Tags = mp3Parser.readTags(musicDataView);
+
+    musicArrayBuffer.slice(mp3Tags[0]._section.byteLength);
+    var nextFrame = mp3Parser.readFrame(musicDataView, mp3Tags[1]._section.nextFrameIndex);
+    while (nextFrame) {
+        if (nextFrame._section.type != "frame") {
+            console.log("There is something that iSnt a frame!");
+            console.log(nextFrame._section.type);
+        }
+        nextFrame = mp3Parser.readFrame(musicDataView, nextFrame._section.nextFrameIndex);
+    }
+    console.log("Done looking for not frames");
+
+
+    //The song sampling rate
+    var samplingRate = mp3Tags[1].header.samplingRate;
+    console.log(samplingRate);
+
+    console.log(mp3Tags);
+
     // Create offline context
     //http://stackoverflow.com/questions/5140085/how-to-get-sampling-rate-and-frequency-of-music-file-mp3-in-android
     //also look into getting the length of each song
     var OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-    var offlineContext = new OfflineContext(2, songsize, 44100);
+    var offlineContext = new OfflineContext(2, songsize, samplingRate);
 
     offlineContext.decodeAudioData(musicArrayBuffer, function(buffer) {
 
@@ -307,8 +333,8 @@ var getMusicData = function(musicArrayBuffer, songsize) {
 
     offlineContext.oncomplete = function(e) {
         var buffer = e.renderedBuffer;
-        var peaks = getPeaks([buffer.getChannelData(0), buffer.getChannelData(1)]);
-        var groups = getIntervals(peaks);
+        var peaks = getPeaks([buffer.getChannelData(0), buffer.getChannelData(1)], samplingRate);
+        var groups = getIntervals(peaks, samplingRate);
 
         var svg = document.querySelector('#svg');
         svg.innerHTML = '';
@@ -354,7 +380,7 @@ var getMusicData = function(musicArrayBuffer, songsize) {
         }).splice(0, 5);
 
         text.innerHTML = '<div id="guess">Guess for track <strong>' + "Unknown Song" + '</strong> by ' +
-            '<strong>' + "UNknown Artist" + '</strong> is <strong>' + Math.round(top[0].tempo) + ' BPM</strong>' +
+            '<strong>' + "Unknown Artist" + '</strong> is <strong>' + Math.round(top[0].tempo) + ' BPM</strong>' +
             ' with ' + top[0].count + ' samples.</div>';
 
         text.innerHTML += '<div class="small">Other options are ' +
@@ -363,6 +389,10 @@ var getMusicData = function(musicArrayBuffer, songsize) {
             }).join(', ') +
             '</div>';
 
+        var printENBPM = function(tempo) {
+            text.innerHTML += '<div class="small">The tempo according to Spotify is ' +
+                tempo + ' BPM</div>';
+        };
 
         result.style.display = 'block';
     };
@@ -425,65 +455,7 @@ var uploadFunction = function() {
 }
 
 
-//Taken from http://stackoverflow.com/questions/12168909/blob-from-dataurl
-//NO SHAME
-function getArrayBufferFromURI(dataURI) {
-    // convert base64 to raw binary data held in a string
-    // doesn't handle URLEncoded DataURIs - see SO answer #6850276 for code that does this
-    var byteString = atob(dataURI.split(',')[1]);
 
-    // separate out the mime component
-    var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
-
-    // write the bytes of the string to an ArrayBuffer
-    var ab = new ArrayBuffer(byteString.length);
-    var ia = new Uint8Array(ab);
-    for (var i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-    }
-
-    // write the ArrayBuffer to a blob, and you're done
-    var blob = new Blob([ab], {
-        type: mimeString
-    });
-    return ab;
-
-    // Old code
-    // var bb = new BlobBuilder();
-    // bb.append(ab);
-    // return bb.getBlob(mimeString);
-}
-
-//Performs KClustering on Data
-function kCluster(clusterCount, peaks) {
-    var clusters = [];
-    var cluster = function() {
-        this.centroid = {};
-        this.entries = [];
-    };
-    //Clone the peaks array into something we can manipulate
-    var tempData = peaks.slice();
-    var done = true;
-
-    //Randomly Assign Centroids
-    //Initialization ste
-    //Create new clusters
-    for (var i = 0; i < clusterCount; i++) {
-        clusters.push(new cluster());
-    }
-
-    while (tempData.length != 0) {
-        var randomClusterIndex = Math.floor(Math.random() * (clusters.length));
-        var randomDataIndex = Math.floor(Math.random() * tempData.length);
-
-        clusters[randomClusterIndex].entries.push(tempData[randomDataIndex]);
-        tempData.splice(randomDataIndex, 1);
-    }
-
-    console.log(clusters);
-
-
-}
 
 function getStandardDev(data, dataAvg) {
     var summation = 0;

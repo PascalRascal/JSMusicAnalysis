@@ -1,36 +1,41 @@
-﻿<html>
-	<head>
-		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-		<title>Finding out the BPM of a song using Javascript</title>
-	    	<meta name="viewport" content="width=device-width, initial-scale=1">
-		<link rel="stylesheet" type="text/css" href="stylesheets/main.css">
-	    	<meta name="description" content="Demo of an algorithm to calculate tempo of a track using the Audio API.">
-	</head>
-	<body>
-		<h1>Calculating BPM using Javascript </h1>
-		<p>This demo uses the browser's <strong>Audio API</strong> to determine the tempo of a song.</p>
-		<p>For more information, read the blog post <a href="http://joesul.li/van/beat-detection-using-web-audio/">Beat Detection Using JavaScript and the Web Audio API</a>, from where I've taken the code to perform the track analysis,
-			and <a href="https://jmperezperez.com/bpm-detection-javascript/">José M. Pérez's Blog Post</a>, who wrote an implmentation with spotify's api which I then modified for use with user files. Currently trying to implement more in-depth
+﻿﻿
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Finding out the BPM of a song using Javascript</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/main.css">
+    <meta name="description" content="Demo of an algorithm to calculate tempo of a track using the Audio API.">
+</head>
+<body>
+    <h1>Calculating BPM using Javascript </h1>
+    <p>This demo uses the browser's <strong>Audio API</strong> to determine the tempo of a song.</p>
+    <p>
+        For more information, read the blog post <a href="http://joesul.li/van/beat-detection-using-web-audio/">Beat Detection Using JavaScript and the Web Audio API</a>, from where I've taken the code to perform the track analysis,
+        and <a href="https://jmperezperez.com/bpm-detection-javascript/">José M. Pérez's Blog Post</a>, who wrote an implmentation with spotify's api which I then modified for use with user files. Currently trying to implement more in-depth
         musical analysis using their work as a basis.
 
-		</p>
-		<form>
-            <input type="file" id="drop_zone" onchange="uploadFunction()">Drop Files Here Fam</input>
-		</form>
+    </p>
+    <form>
+        <input type="file" id="drop_zone" onchange="uploadFunction()">Drop Files Here Fam</input>
+    </form>
 
-		<div id="result">
-			<div id="text"></div>
-			<div>
-				<svg width="100%" height="40" id="svg"></svg>
-				<button id="play">Play track</button>
-			</div>
+    <div id="result">
+        <div id="text"></div>
+        <div>
+            <svg width="100%" height="40" id="svg"></svg>
+            <button id="play">Play track</button>
+        </div>
 
-			<audio id="audio"></audio>
+        <audio id="audio"></audio>
 
 
-		</div>
-
-  	<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.2.2/Chart.bundle.min.js"></script>
-		<script src="scripts/script.js"></script>
-	</body>
+    </div>
+    <script type="text/javascript" src="bower_components/mp3-parser/lib/lib.js"></script>
+    <script type="text/javascript" src="bower_components/mp3-parser/lib/xing.js"></script>
+    <script type="text/javascript" src="bower_components/mp3-parser/lib/id3v2.js"></script>
+    <script type="text/javascript" src="bower_components/mp3-parser/main.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.2.2/Chart.bundle.min.js"></script>
+    <script src="scripts/script.js"></script>
+</body>
 </html>
