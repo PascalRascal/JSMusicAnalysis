@@ -297,7 +297,6 @@ var getMusicData = function(musicArrayBuffer, songsize) {
     //TODO: Impliment mp3-parser to get total frames, should be fun! ^_^
     //kill me
     var samplingRate =  44100;
-;
 
 
     // Create offline context
@@ -442,15 +441,17 @@ var uploadFunction = function() {
     //Read the user file into a format that can we can work with, an array buffer
     var arrayBufferReader = new FileReader();
     arrayBufferReader.onload = function() {
+        var musicArrayBuffer = arrayBufferReader.result;
+        var musicDataView = new DataView(musicArrayBuffer);
 
-        var musicDataView = new DataView(arrayBufferReader.result);
         var frameCount = 0;
         var tagIndex = 0;
         var sampleCount = 0;
 
         //MARCHETTI - ORIGINAL FORMULA, TAKE NOTES!!!!!! ^_^
-        //duration = (totalFrames * sampleLength) / samplingRate
-        //
+        var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
+
+        //Skips any frames at the start that dont contain music data
         var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
         while(frameType != "frame"){
             tagIndex++;
@@ -462,15 +463,17 @@ var uploadFunction = function() {
             frameCount++;
             if(mp3tags._section.type === 'frame'){
                 sampleCount = sampleCount + mp3tags._section.sampleLength;
+            }else{
+                //If it doesnt contain music data? TRASH IT!
+                musicArrayBuffer.splice(mp3tags._section.nextFrameIndex - mp3tags._section.sampleLength, mp3tags_section.nextFrameIndex);
             }
             mp3tags = mp3Parser.readFrame(musicDataView, mp3tags._section.nextFrameIndex);
             if (mp3tags == null) {
                 break;
             }
         }
-        console.log(sampleCount);
 
-        getMusicData(arrayBufferReader.result, sampleCount);
+        getMusicData(musicArrayBuffer, sampleCount);
     }
 
     arrayBufferReader.readAsArrayBuffer(musicFile);
