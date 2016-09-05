@@ -20,7 +20,7 @@ var queryInput = document.querySelector('#query'),
     playButton = document.querySelector('#play'),
     audioPreview = document.getElementById('musicPreview');
 var sections = [];
-var totalSongSize;
+var totalSongSize = 0;
 
 function updateProgressState() {
     if (audioTag.paused) {
@@ -91,7 +91,8 @@ function getPeaks(data, samplingRate, partsPerSecond) {
         peaks = [],
         peakPercentage = 0.7;
     var size = 0,
-        totalSongSize = data[0].length;
+        totalSongSize = data[0].length,
+        totalSongDuration = totalSongSize / samplingRate;
 
     for (var i = 0; i < parts; i++) {
         var max = 0;
@@ -178,7 +179,8 @@ function getIntervals(peaks, samplingRate) {
 }
 
 function getSections(peaks, samplingRate, data){
-
+    var totalSongDuration = data[0].length / samplingRate;
+    console.log(totalSongDuration);
     var sumDistances = 0;
     var avgDistance;
 
@@ -225,12 +227,14 @@ function getSections(peaks, samplingRate, data){
             section.duration = (sections[index + 1].start - section.start) / section.samplingRate;
         }else{
             section.sectionData = [data[0].slice(section.start), data[1].slice(section.start)]
-            section.length = totalSongSize - section.start
-            section.duration = (totalSongSize - section.start) / section.samplingRate;
+            section.length =  section.start + section.sectionData[0].length;
+            section.duration = (totalSongSize + section.sectionData[0].length) / section.samplingRate;
         }
     });
 
-    
+    var averageBPM = 0;
+    var totalBPM = 0;
+    var totalSectionDuration = 0;
     //Calculate Section BPM
     sections.forEach(function(section, index){
         var peaks = getPeaks(section.sectionData, section.samplingRate, 8);
@@ -238,21 +242,22 @@ function getSections(peaks, samplingRate, data){
         var top = groups.sort(function(intA, intB) {
             return intB.count - intA.count;
         });
-        
-        section.bpm = top[0].tempo;
+        if(top[0]){
+            section.bpm = top[0].tempo;
+        }else{
+            section.bpm = 100;
+        }
+        totalSectionDuration = totalSectionDuration + section.duration;
+        totalBPM = totalBPM + Math.abs(section.bpm * section.duration);
         section.avgVolume = getAvgVolume(section.sectionData);
     });
-    var chartData = {};
-    chartData.label = [];
-    chartData.data = [];
-    chartData.backgroundColor = [];
-    sections.forEach(function(section, index){
-        console.log("Section " + index + ", Color: " + section.color);
-        console.log("BPM: " + section.bpm + ", Average Volume: " + section.avgVolume);
-        chartData.label.push("dataFam");
-        chartData.data.push(section.bpm);
-    })
-    console.log(chartData);
+    console.log(totalSectionDuration);
+    averageBPM = totalBPM / totalSongDuration;
+    console.log("Hello World!");
+    console.log(totalBPM);
+    console.log(totalSongDuration);
+    console.log(averageBPM);
+
 
 
 
@@ -260,8 +265,7 @@ function getSections(peaks, samplingRate, data){
 
 var getAvgVolume = function(data){
     var totalVolume = 0;
-    var size = 0,
-        totalSongSize = data[0].length;
+    var size = 0;
     var avgVolume;
     for (var i = 0; i < data[0].length; i++) {
         var volume = Math.max(Math.abs(data[0][i]), Math.abs(data[1][i]));
@@ -276,19 +280,24 @@ var getAvgVolume = function(data){
 }
 
 var getMusicData = function(musicArrayBuffer, songsize) {
-
     var musicDataView = new DataView(musicArrayBuffer);
-    console.log(musicDataView);
-
 
     var mp3Tags = mp3Parser.readTags(musicDataView);
+    console.log(mp3Tags);
+
 
     //Cutting out metadata, we shouldnt try to analyze this
     musicArrayBuffer = musicArrayBuffer.slice(mp3Tags[0]._section.byteLength);
+    console.log(musicArrayBuffer);
 
 
     //The song sampling rate
-    var samplingRate = mp3Tags[1].header.samplingRate;
+    //TODO: Reimpliment this being dynamic
+
+    //TODO: Impliment mp3-parser to get total frames, should be fun! ^_^
+    //kill me
+    var samplingRate =  44100;
+;
 
 
     // Create offline context
@@ -340,10 +349,10 @@ var getMusicData = function(musicArrayBuffer, songsize) {
 
     offlineContext.oncomplete = function(e) {
         var buffer = e.renderedBuffer;
+        console.log(e.renderedBuffer.duration);
         var peaks = getPeaks([buffer.getChannelData(0), buffer.getChannelData(1)], samplingRate, 4);
         var groups = getIntervals(peaks, samplingRate, [buffer.getChannelData(0), buffer.getChannelData(1)]);
         getSections(peaks, samplingRate, [buffer.getChannelData(0), buffer.getChannelData(1)]);
-
         var svg = document.querySelector('#svg');
         svg.innerHTML = '';
         var svgNS = 'http://www.w3.org/2000/svg';
@@ -421,6 +430,7 @@ var uploadFunction = function() {
 
     var musicFile = fileUpload.files[0];
     //TODO: Prevent ppl from fucking up by uploading other types of files
+    console.log(musicFile);
 
     //Put the user file into the <audio> tag for playback
     var dataUrlReader = new FileReader();
@@ -431,9 +441,36 @@ var uploadFunction = function() {
 
     //Read the user file into a format that can we can work with, an array buffer
     var arrayBufferReader = new FileReader();
-
     arrayBufferReader.onload = function() {
-        getMusicData(arrayBufferReader.result, arrayBufferReader.result.byteLength);
+
+        var musicDataView = new DataView(arrayBufferReader.result);
+        var frameCount = 0;
+        var tagIndex = 0;
+        var sampleCount = 0;
+
+        //MARCHETTI - ORIGINAL FORMULA, TAKE NOTES!!!!!! ^_^
+        //duration = (totalFrames * sampleLength) / samplingRate
+        //
+        var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
+        while(frameType != "frame"){
+            tagIndex++;
+            frameType = mp3Parser.readTags(musicDataView)[tagIndex]._section.type
+        }
+
+        var mp3tags = mp3Parser.readTags(musicDataView)[tagIndex];
+        while (true) {
+            frameCount++;
+            if(mp3tags._section.type === 'frame'){
+                sampleCount = sampleCount + mp3tags._section.sampleLength;
+            }
+            mp3tags = mp3Parser.readFrame(musicDataView, mp3tags._section.nextFrameIndex);
+            if (mp3tags == null) {
+                break;
+            }
+        }
+        console.log(sampleCount);
+
+        getMusicData(arrayBufferReader.result, sampleCount);
     }
 
     arrayBufferReader.readAsArrayBuffer(musicFile);
@@ -448,14 +485,6 @@ var uploadFunction = function() {
             var musicView = new DataView(data.buffer);
             console.log(musicView);
 
-            var mp3tags = mp3parser.readTags(musicView)[1];
-            while (true) {
-                var songSize = mp3tags._section.nextFrameIndex;
-                mp3tags = mp3parser.readFrame(musicView, mp3tags._section.nextFrameIndex);
-                if (mp3tags == null) {
-                    break;
-                };
-            }
             console.log(songSize);
 
             console.log(mp3tags);
