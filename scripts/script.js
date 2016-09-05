@@ -20,6 +20,7 @@ var queryInput = document.querySelector('#query'),
     playButton = document.querySelector('#play'),
     audioPreview = document.getElementById('musicPreview');
 var sections = [];
+var totalSongSize;
 
 function updateProgressState() {
     if (audioTag.paused) {
@@ -53,7 +54,7 @@ playButton.addEventListener('click', function() {
 
 result.style.display = 'none';
 
-function getPeaks(data, samplingRate) {
+function getPeaks(data, samplingRate, partsPerSecond) {
 
     // What we're going to do here, is to divide up our audio into parts.
 
@@ -85,28 +86,18 @@ function getPeaks(data, samplingRate) {
     */
 
     //Half-Second Parts
-    var partSize = Math.round(samplingRate / 4),
+    var partSize = Math.round(samplingRate / partsPerSecond),
         parts = data[0].length / partSize,
         peaks = [],
         peakPercentage = 0.7;
-    var totalVolume = 0,
-        avgVolume = 0;
-    var size = 0;
-    for (var i = 0; i < data[0].length; i++) {
-        var volume = Math.max(Math.abs(data[0][i]), Math.abs(data[1][i]));
-        if (volume != 0) {
-            totalVolume = totalVolume + volume;
-            size++;
-        }
-    }
-    avgVolume = totalVolume / size;
-
+    var size = 0,
+        totalSongSize = data[0].length;
 
     for (var i = 0; i < parts; i++) {
         var max = 0;
         for (var j = i * partSize; j < (i + 1) * partSize; j++) {
             var volume = Math.max(Math.abs(data[0][j]), Math.abs(data[1][j]));
-            if (max == 0 || ((volume > max.volume) && volume > avgVolume)) {
+            if (max == 0 || ((volume > max.volume))) {
                 max = {
                     position: j,
                     volume: volume
@@ -148,83 +139,11 @@ function getIntervals(peaks, samplingRate) {
     // to the track itself.
 
     var groups = [];
-    var sumDistances = 0;
-    var avgDistance;
-
-    var chartData = [];
-    for (var i = 0; i < peaks.length; i++) {
-        var positionInSeconds = peaks[i].position / samplingRate;
-        var distanceToNextInSeconds = peaks[i].distanceToNext / samplingRate;
-        peaks[i].positionInSeconds = positionInSeconds;
-        chartData.push({
-            x: positionInSeconds,
-            y: distanceToNextInSeconds
-        })
-    }
-
-
-    peaks.forEach(function(peak, index) {
-        if (peaks[index + 1] && peaks[index - 1]) {
-            peak.distanceToNext = peaks[index + 1].position - peak.position
-            peak.distanceToLast = peak.position - peaks[index - 1].position;
-            peak.distanceBetween = peak.distanceToNext - peak.distanceToLast
-        } else {
-            peak.distanceToNext = 0;
-        }
-        sumDistances = sumDistances + peak.distanceToNext;
-    });
-
-
-    avgDistance = sumDistances / peaks.length;
-    var stdDev = getStandardDev(peaks, avgDistance);
-
-    var firstPeakDeviation = (peaks[0].position - avgDistance) / stdDev;
-    var firstSection = new section(0, firstPeakDeviation);
-    sections.push(firstSection);
-    var sectionMargin = 2;
-
-
-    peaks.forEach(function(peak, index) {
-        var peakDeviation = (peak.distanceToNext - avgDistance) / stdDev;
-
-        if (Math.abs(sections[sections.length - 1].stdDev - peakDeviation) > sectionMargin && peak.distanceToNext != 0) {
-            sections.push(new section(peak.position, peakDeviation));
-        }
-    });
-    console.log(sections);
-
-
-    console.log(getStandardDev(peaks, avgDistance));
-    console.log(avgDistance);
-    console.log(avgDistance / samplingRate);
-
-    //Draw the data to chart
-    var ctx = document.getElementById("myChart");
-
-    /*
-    var scatterChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            datasets: [{
-                label: 'Scatter Dataset',
-                data: chartData
-            }]
-        },
-        options: {
-            scales: {
-                xAxes: [{
-                    type: 'linear',
-                    position: 'bottom'
-                }]
-            }
-        }
-    });
-    */
 
     peaks.forEach(function(peak, index) {
         //Compares the peak distance to the next 10 peaks
         for (var i = 1;
-            (index + i) < peaks.length && i < 20; i++) {
+            (index + i) < peaks.length && i < 10; i++) {
             var peakDistance = peaks[index + i].position - peak.position;
             var group = {
                 //This tempo calculation is WRONG
@@ -258,6 +177,104 @@ function getIntervals(peaks, samplingRate) {
     return groups;
 }
 
+function getSections(peaks, samplingRate, data){
+
+    var sumDistances = 0;
+    var avgDistance;
+
+    //Get the average of peak seperation
+    peaks.forEach(function(peak, index) {
+    if (peaks[index + 1] && peaks[index - 1]) {
+         peak.distanceToNext = peaks[index + 1].position - peak.position
+        peak.distanceToLast = peak.position - peaks[index - 1].position;
+        peak.distanceBetween = peak.distanceToNext - peak.distanceToLast
+    } else {
+        peak.distanceToNext = 0;
+    }
+        sumDistances = sumDistances + peak.distanceToNext;
+    });
+
+
+    avgDistance = sumDistances / peaks.length;
+    var stdDev = getStandardDev(peaks, avgDistance);
+
+    var firstPeakDeviation = (peaks[0].position - avgDistance) / stdDev;
+    var firstSection = new section(0, firstPeakDeviation, samplingRate);
+    firstSection.peaks.push(peaks[0]);
+    sections.push(firstSection);
+    var sectionMargin = 2;
+
+    //Split the song into sections
+    peaks.forEach(function(peak, index) {
+        var peakDeviation = (peak.distanceToNext - avgDistance) / stdDev;
+        //If the peak is within a the same deviation as the current section, add it to section peaks array, otherwise create a new section
+        if (Math.abs(sections[sections.length - 1].stdDev - peakDeviation) > sectionMargin && peak.distanceToNext != 0) {
+            var newSection = new section(peak.position, peakDeviation, samplingRate);
+            newSection.peaks.push(peak);
+            sections.push(newSection);
+        }else{
+            sections[sections.length - 1].peaks.push(peak);
+        }
+    });
+
+    //Calculate section length and duration
+    sections.forEach(function(section, index){
+        if(sections[index + 1]){
+            section.sectionData = [data[0].slice(section.start, sections[index + 1].start), data[1].slice(section.start, sections[index + 1].start)];
+            section.length = sections[index + 1].start - section.start
+            section.duration = (sections[index + 1].start - section.start) / section.samplingRate;
+        }else{
+            section.sectionData = [data[0].slice(section.start), data[1].slice(section.start)]
+            section.length = totalSongSize - section.start
+            section.duration = (totalSongSize - section.start) / section.samplingRate;
+        }
+    });
+
+    
+    //Calculate Section BPM
+    sections.forEach(function(section, index){
+        var peaks = getPeaks(section.sectionData, section.samplingRate, 8);
+        var groups = getIntervals(peaks, section.samplingRate);
+        var top = groups.sort(function(intA, intB) {
+            return intB.count - intA.count;
+        });
+        
+        section.bpm = top[0].tempo;
+        section.avgVolume = getAvgVolume(section.sectionData);
+    });
+    var chartData = {};
+    chartData.label = [];
+    chartData.data = [];
+    chartData.backgroundColor = [];
+    sections.forEach(function(section, index){
+        console.log("Section " + index + ", Color: " + section.color);
+        console.log("BPM: " + section.bpm + ", Average Volume: " + section.avgVolume);
+        chartData.label.push("dataFam");
+        chartData.data.push(section.bpm);
+    })
+    console.log(chartData);
+
+
+
+}
+
+var getAvgVolume = function(data){
+    var totalVolume = 0;
+    var size = 0,
+        totalSongSize = data[0].length;
+    var avgVolume;
+    for (var i = 0; i < data[0].length; i++) {
+        var volume = Math.max(Math.abs(data[0][i]), Math.abs(data[1][i]));
+        if (volume != 0) {
+            totalVolume = totalVolume + volume;
+            size++;
+        }
+    }
+    avgVolume = totalVolume / size;
+    return avgVolume;
+
+}
+
 var getMusicData = function(musicArrayBuffer, songsize) {
 
     var musicDataView = new DataView(musicArrayBuffer);
@@ -266,23 +283,13 @@ var getMusicData = function(musicArrayBuffer, songsize) {
 
     var mp3Tags = mp3Parser.readTags(musicDataView);
 
-    musicArrayBuffer.slice(mp3Tags[0]._section.byteLength);
-    var nextFrame = mp3Parser.readFrame(musicDataView, mp3Tags[1]._section.nextFrameIndex);
-    while (nextFrame) {
-        if (nextFrame._section.type != "frame") {
-            console.log("There is something that iSnt a frame!");
-            console.log(nextFrame._section.type);
-        }
-        nextFrame = mp3Parser.readFrame(musicDataView, nextFrame._section.nextFrameIndex);
-    }
-    console.log("Done looking for not frames");
+    //Cutting out metadata, we shouldnt try to analyze this
+    musicArrayBuffer = musicArrayBuffer.slice(mp3Tags[0]._section.byteLength);
 
 
     //The song sampling rate
     var samplingRate = mp3Tags[1].header.samplingRate;
-    console.log(samplingRate);
 
-    console.log(mp3Tags);
 
     // Create offline context
     //http://stackoverflow.com/questions/5140085/how-to-get-sampling-rate-and-frequency-of-music-file-mp3-in-android
@@ -333,8 +340,9 @@ var getMusicData = function(musicArrayBuffer, songsize) {
 
     offlineContext.oncomplete = function(e) {
         var buffer = e.renderedBuffer;
-        var peaks = getPeaks([buffer.getChannelData(0), buffer.getChannelData(1)], samplingRate);
-        var groups = getIntervals(peaks, samplingRate);
+        var peaks = getPeaks([buffer.getChannelData(0), buffer.getChannelData(1)], samplingRate, 4);
+        var groups = getIntervals(peaks, samplingRate, [buffer.getChannelData(0), buffer.getChannelData(1)]);
+        getSections(peaks, samplingRate, [buffer.getChannelData(0), buffer.getChannelData(1)]);
 
         var svg = document.querySelector('#svg');
         svg.innerHTML = '';
@@ -345,7 +353,12 @@ var getMusicData = function(musicArrayBuffer, songsize) {
             rect = document.createElementNS(svgNS, 'rect');
             rect.setAttributeNS(null, 'x', (100 * section.start / buffer.length) + '%');
             rect.setAttributeNS(null, 'y', 0);
+            rect.setAttributeNS(null, 'sectionIndex', index);
+            console.log(sections[rect.getAttribute("sectionIndex")]);
             rect.setAttributeNS(null, 'fill', section.color);
+            rect.addEventListener("click", function(){
+                console.log(sections[rect.getAttribute("sectionIndex")].tempo);
+            })
             if (section[index + 1]) {
                 rect.setAttributeNS(null, 'width', ((sections[index + 1].start - section.start)));
             } else {
@@ -354,8 +367,9 @@ var getMusicData = function(musicArrayBuffer, songsize) {
             rect.setAttributeNS(null, 'height', '100%');
             svg.appendChild(rect);
         });
-        //Draw the peaks
 
+        //Draw the peaks
+        /*
         peaks.forEach(function(peak) {
             rect = document.createElementNS(svgNS, 'rect');
             rect.setAttributeNS(null, 'x', (100 * peak.position / buffer.length) + '%');
@@ -364,7 +378,7 @@ var getMusicData = function(musicArrayBuffer, songsize) {
             rect.setAttributeNS(null, 'height', '100%');
             svg.appendChild(rect);
         });
-
+        */
 
         rect = document.createElementNS(svgNS, 'rect');
         rect.setAttributeNS(null, 'id', 'progress');
@@ -469,10 +483,23 @@ function getStandardDev(data, dataAvg) {
 
 }
 
-var section = function(start, stdDev) {
+var section = function(start, stdDev, samplingRate) {
     this.start = start;
+    this.samplingRate = samplingRate;
+    
+
     this.stdDev = stdDev;
-    this.color = getRandomColor();
+
+    this.peaks = [];
+
+    this.color = randomColor();
+
+    //TODO: Add BPM Calculation
+    this.calculateBPM = function(){
+        this.peaks.forEach(function(){
+
+        })
+    }
 }
 
 
