@@ -116,10 +116,13 @@ var getMusicData = function(musicArrayBuffer, songsize) {
     });
 
     offlineContext.oncomplete = function(e) {
+
+        var analysisOptions = {partsPerSecond: 4};
         
         var renderedBuffer = e.renderedBuffer;
         console.log([renderedBuffer.getChannelData(0), renderedBuffer.getChannelData(1)]);
-        getWorkerPeaks([renderedBuffer.getChannelData(0), renderedBuffer.getChannelData(1)], samplingRate, 4);
+        analyzeSong([renderedBuffer.getChannelData(0), renderedBuffer.getChannelData(1)], samplingRate, analysisOptions, drawData);
+
         /*
         console.log(e.renderedBuffer.duration);
         var peaks = getPeaks([buffer.getChannelData(0), buffer.getChannelData(1)], samplingRate, 4);
@@ -192,35 +195,48 @@ var uploadFunction = function() {
 
 }
 
-function getWorkerPeaks(songData, samplingRate, peaksPerSecond) {
-    worker.postMessage({'cmd': 'getPeaks', 'songData': songData, 'samplingRate': samplingRate, 'peaksPerSecond': peaksPerSecond});
- }
-
- function getWorkerIntervals(peaks, samplingRate){
-     worker.postMesssage({'cmd': 'getIntervals', 'peaks': peaks, 'samplingRate': samplingRate});
- }
-
- function getWorkerSections(songData, peaks, samplingRate){
-     worker.postMessage({'cmd': 'getSections', 'peaks': peaks, 'samplingRate': samplingRate, 'songData': songData});
- }
-
-var worker = new Worker(URL.createObjectURL(new Blob(["("+worker_function.toString()+")()"], {type: 'text/javascript'})));
-
-var workerPeaks;
-var workerSongData;
-
-worker.addEventListener('message', function(e) {
-    var data = e.data;
-    if(data.returnType == "peaks"){
-        workerPeaks = data.peaks;
-        console.log(workerPeaks);
-        workerSongData = data.songData
-        getWorkerSections(workerSongData, workerPeaks, data.samplingRate);
-    } else if(data.returnType == "sections"){
-        var sections = data.sections;
-        drawData(workerPeaks, sections, workerSongData);
+function analyzeSong(songData, samplingRate, songOptions, cb){
+    var pps;
+    if(songOptions.peaksPerSecond){
+        pps = peaksPerSecond;
+    }else{
+        pps = 2;
     }
-}, false);
+
+    var worker = new Worker(URL.createObjectURL(new Blob(["("+worker_function.toString()+")()"], {type: 'text/javascript'})));
+
+    var workerPeaks;
+    var workerSongData;
+
+    worker.addEventListener('message', function(e) {
+        var data = e.data;
+        if(data.returnType == "peaks"){
+            workerPeaks = data.peaks;
+            console.log(workerPeaks);
+            workerSongData = data.songData
+            getWorkerSections(workerSongData, workerPeaks, data.samplingRate);
+        } else if(data.returnType == "sections"){
+            var sections = data.sections;
+            cb(workerPeaks, sections, workerSongData);
+        }
+    }, false);
+
+    function getWorkerPeaks(songData, samplingRate, peaksPerSecond) {
+        worker.postMessage({'cmd': 'getPeaks', 'songData': songData, 'samplingRate': samplingRate, 'peaksPerSecond': peaksPerSecond});
+    }
+
+    function getWorkerIntervals(peaks, samplingRate){
+        worker.postMesssage({'cmd': 'getIntervals', 'peaks': peaks, 'samplingRate': samplingRate});
+    }
+
+    function getWorkerSections(songData, peaks, samplingRate){
+        worker.postMessage({'cmd': 'getSections', 'peaks': peaks, 'samplingRate': samplingRate, 'songData': songData});
+    }
+
+    getWorkerPeaks(songData, samplingRate, pps);
+
+
+}
 
 function drawData(peaks, sections, buffer){
         var svg = document.querySelector('#svg');
@@ -270,6 +286,17 @@ function drawData(peaks, sections, buffer){
         svg.innerHTML = svg.innerHTML; // force repaint in some browsers
 
         progressDiv.innerHTML = '';
+        var totalbeats = 0;
+        var totalDuration = 0;
+        sections.forEach(function(section){
+            totalbeats = totalbeats + section.bpm * section.duration / 60;
+            totalDuration = totalDuration + section.duration;
+        });
+
+        var avgBPM = totalbeats  * 60/ totalDuration;
+
+        text.innerHTML = "The average BPM for this song is " + Math.round(avgBPM) + " beats per minute";
+        console.log(totalDuration);
 
 
         result.style.display = 'block';
