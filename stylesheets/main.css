@@ -123,6 +123,12 @@ footer h3 {
 	margin-right: 10px;
 }
 
+#analysisProgress {
+	font-weight: bold;
+	font-size: 150%;
+	text-align: center;
+}
+
 .about .name {
 	font-weight: bold;
 	font-size: 110%;
