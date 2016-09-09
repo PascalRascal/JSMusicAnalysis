@@ -16,10 +16,16 @@
         musical analysis using their work as a basis.
 
     </p>
-    <form>
-        <input type="file" id="drop_zone" onchange="uploadFunction()">Drop Files Here Fam</input>
-    </form>
-    <div id="analysisProgress"></div>
+    <div>
+        Parts per Second:
+        <input id="userPPS" type="number" max="10" value="2"/>
+    </div>
+        <div>
+         Breadth of Section (Higher number means less sections):
+        <input id="userSectionMargin" type="number" max="5" value="2">
+    </div>
+    <input type="file" id="drop_zone">
+    <button id="SongAnalyzer" onclick="uploadFunction()"> Analyze Song! </button>
 
 
     <div id="result">
@@ -32,11 +38,15 @@
 
 
 
-        <audio id="audio"></audio>
+        <audio id="audio" accept=".mp3"></audio>
 
 
     </div>
-    <canvas id="sectionChart" width="400" height="400"></canvas>
+
+    <div id="sectionAnalysis">
+
+
+    </div>
 
     <script type="text/javascript" src="bower_components/mp3-parser/lib/lib.js"></script>
     <script type="text/javascript" src="bower_components/mp3-parser/lib/xing.js"></script>

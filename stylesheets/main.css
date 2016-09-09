@@ -115,6 +115,13 @@ footer h3 {
 .media, .bd {overflow:hidden; _overflow:visible; zoom:1;}
 .media .img {float:left;}
 
+.songSection {
+	padding: 0.5em;
+	border: 1px solid #ccc;
+	font-size:1em;
+	display:block; 
+}
+
 /* ABOUT BOX */
 .about .avatar-image {
 	border-radius: 100%;

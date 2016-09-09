@@ -109,11 +109,12 @@ function get_random_color() {
 
   }
 
-  function getSections(peaks, samplingRate, data){
+  function getSections(peaks, samplingRate, data, sectionMargin){
     var sections = [];
+    var sectionMargin = sectionMargin;
+    console.log(sectionMargin);
     var totalSongDuration = data[0].length / samplingRate;
     var totalSongSize = data[0].length;
-    var sectionMargin = 1.5;
     console.log(totalSongDuration);
     var sumDistances = 0;
     var avgDistance;
@@ -148,6 +149,7 @@ function get_random_color() {
             newSection.peaks.push(peak);
             sections.push(newSection);
         }else{
+            //Push the peak to the current section
             sections[sections.length - 1].peaks.push(peak);
         }
     });
@@ -156,9 +158,11 @@ function get_random_color() {
     sections.forEach(function(section, index){
         if(sections[index + 1]){
             section.sectionData = [data[0].slice(section.start, sections[index + 1].start), data[1].slice(section.start, sections[index + 1].start)];
+            section.end = sections[index + 1].start
             section.length = sections[index + 1].start - section.start
             section.duration = (sections[index + 1].start - section.start) / section.samplingRate;
         }else{
+            section.end = data[0].length
             section.sectionData = [data[0].slice(section.start), data[1].slice(section.start)]
             section.length =  totalSongSize - section.start;
             section.duration =  section.length / section.samplingRate;
@@ -224,9 +228,6 @@ function get_random_color() {
             (index + i) < peaks.length && i < 10; i++) {
             var peakDistance = peaks[index + i].position - peak.position;
             var group = {
-                //This tempo calculation is WRONG
-                //Fix it later maybe
-                //probs not tbh
                 tempo: (60 * samplingRate) / (peaks[index + i].position - peak.position),
                 count: 1
             };
@@ -264,7 +265,11 @@ var myPeaks;
             self.postMessage({'returnType': 'peaks', 'peaks': myPeaks, 'songData': data.songData, 'samplingRate': data.samplingRate});
         }else if(data.cmd == "getSections"){
             console.log(data.songData);
-            var sections = getSections(myPeaks, data.samplingRate, data.songData);
+            var sections = getSections(myPeaks, data.samplingRate, data.songData, data.sectionMargin);
+            //After peaks have been analyzed, the section data can be deleted
+            sections.forEach(function(section){
+                section.sectionData = [];
+            })
             console.log(sections);
             self.postMessage({'returnType': 'sections', 'sections': sections});
         }else if(data.cmd == "getIntervals"){
