@@ -1,4 +1,4 @@
-﻿ /* global SpotifyWebApi */
+﻿/* global SpotifyWebApi */
 /*
   The code for finding out the BPM / tempo is taken from this post:
   http://tech.beatport.com/2014/web-audio/beat-detection-using-web-audio/
@@ -46,7 +46,7 @@ audioTag.addEventListener('playing', updatePlayLabel);
 audioTag.addEventListener('pause', updatePlayLabel);
 audioTag.addEventListener('ended', updatePlayLabel);
 
-playButton.addEventListener('click', function() {
+playButton.addEventListener('click', function () {
     if (audioTag.paused) {
         audioTag.play();
     } else {
@@ -57,7 +57,7 @@ playButton.addEventListener('click', function() {
 result.style.display = 'none';
 
 
-var getMusicData = function(musicArrayBuffer, songsize, samplingRate) {
+var getMusicData = function (musicArrayBuffer, songsize, samplingRate) {
     var musicDataView = new DataView(musicArrayBuffer);
 
 
@@ -67,14 +67,14 @@ var getMusicData = function(musicArrayBuffer, songsize, samplingRate) {
 
     //TODO: Impliment mp3-parser to get total frames, should be fun! ^_^
     //kill me
-    var samplingRate =  44100;
+    var samplingRate = 44100;
 
 
     // Create offline context
     var OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     var offlineContext = new OfflineContext(2, songsize, samplingRate);
 
-    offlineContext.decodeAudioData(musicArrayBuffer, function(buffer) {
+    offlineContext.decodeAudioData(musicArrayBuffer, function (buffer) {
 
         // Create buffer source
         var source = offlineContext.createBufferSource();
@@ -115,16 +115,16 @@ var getMusicData = function(musicArrayBuffer, songsize, samplingRate) {
         offlineContext.startRendering();
     });
 
-    offlineContext.oncomplete = function(e) {
+    offlineContext.oncomplete = function (e) {
         var userPPS = document.getElementById("userPPS").value;
         var userSectionMargin = document.getElementById("userSectionMargin").value;
         console.log(userPPS);
 
-        var analysisOptions = {partsPerSecond: userPPS, sectionMargin: userSectionMargin};
-        
+        var analysisOptions = { partsPerSecond: userPPS, sectionMargin: userSectionMargin };
+
         var renderedBuffer = e.renderedBuffer;
         console.log([renderedBuffer.getChannelData(0), renderedBuffer.getChannelData(1)]);
-        analyzeSong([renderedBuffer.getChannelData(0), renderedBuffer.getChannelData(1)], samplingRate, analysisOptions, drawData);        
+        analyzeSong([renderedBuffer.getChannelData(0), renderedBuffer.getChannelData(1)], samplingRate, analysisOptions, drawData);
     };
 };
 
@@ -133,107 +133,64 @@ var getMusicData = function(musicArrayBuffer, songsize, samplingRate) {
 
 var fileUpload = document.getElementById("drop_zone");
 
-var uploadFunction = function() {
+var uploadFunction = function () {
 
     var musicFile = fileUpload.files[0];
-    //TODO: Prevent ppl from fucking up by uploading other types of files
     console.log(musicFile);
-
-    //Put the user file into the <audio> tag for playback
-    var dataUrlReader = new FileReader();
-    dataUrlReader.onload = function() {
-        audioTag.src = dataUrlReader.result;
-    }
-    dataUrlReader.readAsDataURL(musicFile);
 
     //Read the user file into a format that can we can work with, an array buffer
     var arrayBufferReader = new FileReader();
-    arrayBufferReader.onload = function() {
-        var musicArrayBuffer = arrayBufferReader.result;
-        var musicDataView = new DataView(musicArrayBuffer);
-        
-        var frameCount = 0;
-        var tagIndex = 0;
-        var sampleCount = 0;
-
-        //MARCHETTI - ORIGINAL FORMULA, TAKE NOTES!!!!!! ^_^
-        var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
-
-        //Skips any frames at the start that dont contain music data
-        var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
-        while(frameType != "frame"){
-            tagIndex++;
-            frameType = mp3Parser.readTags(musicDataView)[tagIndex]._section.type
-        }
-        console.log(mp3Parser.readTags(musicDataView)[tagIndex])
-        var samplingRate = mp3Parser.readTags(musicDataView)[tagIndex].header.samplingRate
-        
-        var mp3tags = mp3Parser.readTags(musicDataView)[tagIndex];
-        while (true) {
-            if(mp3tags._section.type === 'frame'){
-                frameCount++;
-                sampleCount = sampleCount + mp3tags._section.sampleLength;
-            }else{
-                //If it doesnt contain music data? TRASH IT!
-                musicArrayBuffer.splice(mp3tags._section.nextFrameIndex - mp3tags._section.sampleLength, mp3tags_section.nextFrameIndex);
-            }
-            mp3tags = mp3Parser.readFrame(musicDataView, mp3tags._section.nextFrameIndex);
-            if (mp3tags == null) {
-                break;
-            }
-        }
-        originalSongBuffer = musicArrayBuffer
-
-        getMusicData(musicArrayBuffer, sampleCount, samplingRate);
+    arrayBufferReader.onload = function () {
+        handleArrayBuffer(arrayBufferReader.result);
     }
 
     arrayBufferReader.readAsArrayBuffer(musicFile);
 
 }
 
-function analyzeSong(songData, samplingRate, songOptions, cb){
+function analyzeSong(songData, samplingRate, songOptions, cb) {
     var pps;
     var sm;
-    if(songOptions.peaksPerSecond){
+    if (songOptions.peaksPerSecond) {
         pps = peaksPerSecond;
-    }else{
+    } else {
         pps = 2;
     }
-    if(songOptions.sectionMargin){
+    if (songOptions.sectionMargin) {
         sm = songOptions.sectionMargin
-    }else{
+    } else {
         sm = 1.5;
     }
     console.log(sm);
 
-    var worker = new Worker(URL.createObjectURL(new Blob(["("+worker_function.toString()+")()"], {type: 'text/javascript'})));
+    var worker = new Worker(URL.createObjectURL(new Blob(["(" + worker_function.toString() + ")()"], { type: 'text/javascript' })));
 
     var workerPeaks;
     var workerSongData;
 
-    worker.addEventListener('message', function(e) {
+    worker.addEventListener('message', function (e) {
         var data = e.data;
-        if(data.returnType == "peaks"){
+        if (data.returnType == "peaks") {
             workerPeaks = data.peaks;
             console.log(workerPeaks);
             workerSongData = data.songData
             getWorkerSections(workerSongData, workerPeaks, data.samplingRate, sm);
-        } else if(data.returnType == "sections"){
+        } else if (data.returnType == "sections") {
             var sections = data.sections;
             cb(workerPeaks, sections, workerSongData);
         }
     }, false);
 
     function getWorkerPeaks(songData, samplingRate, peaksPerSecond) {
-        worker.postMessage({'cmd': 'getPeaks', 'songData': songData, 'samplingRate': samplingRate, 'peaksPerSecond': peaksPerSecond});
+        worker.postMessage({ 'cmd': 'getPeaks', 'songData': songData, 'samplingRate': samplingRate, 'peaksPerSecond': peaksPerSecond });
     }
 
-    function getWorkerIntervals(peaks, samplingRate, sm){
-        worker.postMesssage({'cmd': 'getIntervals', 'peaks': peaks, 'samplingRate': samplingRate, 'sectionMargin': sm});
+    function getWorkerIntervals(peaks, samplingRate, sm) {
+        worker.postMesssage({ 'cmd': 'getIntervals', 'peaks': peaks, 'samplingRate': samplingRate, 'sectionMargin': sm });
     }
 
-    function getWorkerSections(songData, peaks, samplingRate){
-        worker.postMessage({'cmd': 'getSections', 'peaks': peaks, 'samplingRate': samplingRate, 'songData': songData, 'sectionMargin': sm});
+    function getWorkerSections(songData, peaks, samplingRate) {
+        worker.postMessage({ 'cmd': 'getSections', 'peaks': peaks, 'samplingRate': samplingRate, 'songData': songData, 'sectionMargin': sm });
     }
 
     getWorkerPeaks(songData, samplingRate, pps);
@@ -241,79 +198,79 @@ function analyzeSong(songData, samplingRate, songOptions, cb){
 
 }
 
-function drawData(peaks, sections, buffer){
-        var svg = document.querySelector('#svg');
-        svg.innerHTML = '';
-        var svgNS = 'http://www.w3.org/2000/svg';
-        var rect;
-        document.getElementById("sectionAnalysis").innerHTML = '';
+function drawData(peaks, sections, buffer) {
+    var svg = document.querySelector('#svg');
+    svg.innerHTML = '';
+    var svgNS = 'http://www.w3.org/2000/svg';
+    var rect;
+    document.getElementById("sectionAnalysis").innerHTML = '';
 
 
-        sections.forEach(function(section, index) {
-            rect = document.createElementNS(svgNS, 'rect');
-
-            rect.setAttributeNS(null, 'x', (100 * section.start / buffer[0].length) + '%');
-            rect.setAttributeNS(null, 'y', 0);
-            rect.setAttributeNS(null, 'sectionIndex', index);
-            console.log(sections[rect.getAttribute("sectionIndex")]);
-            rect.setAttributeNS(null, 'fill', section.color);
-            if (section[index + 1]) {
-                rect.setAttributeNS(null, 'width', (100 * ((sections[index + 1].start - section.start)/buffer[0].length)) + `%`);
-            } else {
-                rect.setAttributeNS(null, 'width', (100 * ((buffer[0].length - section.start)/buffer[0].length)) + '%');
-            }
-            rect.setAttributeNS(null, 'height', '100%');
-            svg.appendChild(rect);
-            drawSection(section, index);
-        });
-
-        //Draw the peaks
-        console.log(peaks);
-        /*
-        peaks.forEach(function(peak) {
-            rect = document.createElementNS(svgNS, 'rect');
-            rect.setAttributeNS(null, 'x', (100 * peak.position / buffer[0].length) + '%');
-            rect.setAttributeNS(null, 'y', 0);
-            rect.setAttributeNS(null, 'width', 1);
-            rect.setAttributeNS(null, 'height', '100%');
-            svg.appendChild(rect);
-        });
-        */
-        
-
+    sections.forEach(function (section, index) {
         rect = document.createElementNS(svgNS, 'rect');
-        rect.setAttributeNS(null, 'id', 'progress');
+
+        rect.setAttributeNS(null, 'x', (100 * section.start / buffer[0].length) + '%');
+        rect.setAttributeNS(null, 'y', 0);
+        rect.setAttributeNS(null, 'sectionIndex', index);
+        console.log(sections[rect.getAttribute("sectionIndex")]);
+        rect.setAttributeNS(null, 'fill', section.color);
+        if (section[index + 1]) {
+            rect.setAttributeNS(null, 'width', (100 * ((sections[index + 1].start - section.start) / buffer[0].length)) + `%`);
+        } else {
+            rect.setAttributeNS(null, 'width', (100 * ((buffer[0].length - section.start) / buffer[0].length)) + '%');
+        }
+        rect.setAttributeNS(null, 'height', '100%');
+        svg.appendChild(rect);
+        drawSection(section, index);
+    });
+
+    //Draw the peaks
+    console.log(peaks);
+    /*
+    peaks.forEach(function(peak) {
+        rect = document.createElementNS(svgNS, 'rect');
+        rect.setAttributeNS(null, 'x', (100 * peak.position / buffer[0].length) + '%');
         rect.setAttributeNS(null, 'y', 0);
         rect.setAttributeNS(null, 'width', 1);
         rect.setAttributeNS(null, 'height', '100%');
         svg.appendChild(rect);
-
-        svg.innerHTML = svg.innerHTML; // force repaint in some browsers
-
-        var totalbeats = 0;
-        var totalDuration = 0;
-        sections.forEach(function(section){
-            totalbeats = totalbeats + section.bpm * section.duration / 60;
-            totalDuration = totalDuration + section.duration;
-        });
-
-        var avgBPM = totalbeats  * 60/ totalDuration;
-
-        text.innerHTML = "The average BPM for this song is " + Math.round(avgBPM) + " beats per minute";
-        console.log(totalDuration);
+    });
+    */
 
 
-        result.style.display = 'block';
-    };
+    rect = document.createElementNS(svgNS, 'rect');
+    rect.setAttributeNS(null, 'id', 'progress');
+    rect.setAttributeNS(null, 'y', 0);
+    rect.setAttributeNS(null, 'width', 1);
+    rect.setAttributeNS(null, 'height', '100%');
+    svg.appendChild(rect);
 
-function drawSection(section, index){
+    svg.innerHTML = svg.innerHTML; // force repaint in some browsers
+
+    var totalbeats = 0;
+    var totalDuration = 0;
+    sections.forEach(function (section) {
+        totalbeats = totalbeats + section.bpm * section.duration / 60;
+        totalDuration = totalDuration + section.duration;
+    });
+
+    var avgBPM = totalbeats * 60 / totalDuration;
+
+    text.innerHTML = "The average BPM for this song is " + Math.round(avgBPM) + " beats per minute";
+    console.log(totalDuration);
+
+
+    result.style.display = 'block';
+};
+
+function drawSection(section, index) {
     sectionDiv = document.createElement("div");
-    sectionDiv.addEventListener("click", function(){
+    sectionDiv.addEventListener("click", function () {
         var progressIndicator = document.querySelector('#progress');
         audioTag.currentTime = section.start / section.samplingRate;
         progressIndicator.setAttribute('x', (audioTag.currentTime * 100 / audioTag.duration) + '%');
         console.log(section);
-     })
+    })
     sectionDiv.className = "songSection";
     sectionDiv.innerHTML = `
         <h3> Section ` + index + `</h3>
@@ -326,6 +283,58 @@ function drawSection(section, index){
     sectionDiv.style.backgroundColor = section.color;
     document.getElementById("sectionAnalysis").appendChild(sectionDiv);
 }
+
+function handleArrayBuffer(musicArrayBuffer) {
+    var musicDataView = new DataView(musicArrayBuffer);
+
+    var frameCount = 0;
+    var tagIndex = 0;
+    var sampleCount = 0;
+
+    var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
+
+    //Skips any frames at the start that dont contain music data
+    var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
+    while (frameType != "frame") {
+        tagIndex++;
+        frameType = mp3Parser.readTags(musicDataView)[tagIndex]._section.type
+    }
+    console.log(mp3Parser.readTags(musicDataView)[tagIndex])
+    var samplingRate = mp3Parser.readTags(musicDataView)[tagIndex].header.samplingRate
+
+    var mp3tags = mp3Parser.readTags(musicDataView)[tagIndex];
+    while (true) {
+        if (mp3tags._section.type === 'frame') {
+            frameCount++;
+            sampleCount = sampleCount + mp3tags._section.sampleLength;
+        } else {
+            //If it doesnt contain music data? TRASH IT!
+            musicArrayBuffer.splice(mp3tags._section.nextFrameIndex - mp3tags._section.sampleLength, mp3tags_section.nextFrameIndex);
+        }
+        mp3tags = mp3Parser.readFrame(musicDataView, mp3tags._section.nextFrameIndex);
+        if (mp3tags == null) {
+            break;
+        }
+    }
+    originalSongBuffer = musicArrayBuffer
+    //Put the data into the audiotag
+    var songBlob = new Blob([musicArrayBuffer], { type: "audio/mpeg3" });
+    audioTag.src = window.URL.createObjectURL(songBlob);
+
+    getMusicData(musicArrayBuffer, sampleCount, samplingRate);
+}
+
+function getExampleAudio(){
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', window.location.href +  '/exampleSongs/FuriousFreak.mp3', true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onload = function(e){
+        handleArrayBuffer(this.response);
+    }
+    xhr.send();
+
+}
+
 
 
 

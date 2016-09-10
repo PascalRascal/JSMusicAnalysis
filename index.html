@@ -16,16 +16,19 @@
         musical analysis using their work as a basis.
 
     </p>
+    
     <div>
-        Parts per Second:
-        <input id="userPPS" type="number" max="10" value="2"/>
+        Peaks per Second:
+        <input id="userPPS" type="number" max="10" value="4"/>
     </div>
         <div>
          Breadth of Section (Higher number means less sections):
-        <input id="userSectionMargin" type="number" max="5" value="2">
+        <input id="userSectionMargin" type="number" max="5" value="1.25">
     </div>
     <input type="file" id="drop_zone">
-    <button id="SongAnalyzer" onclick="uploadFunction()"> Analyze Song! </button>
+    <button id="SongAnalyzer" onclick="uploadFunction()"> Analyze Your Song! </button>
+    <button onclick="getExampleAudio()"> Analyze An Example Song! </button>
+
 
 
     <div id="result">
