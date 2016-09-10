@@ -56,7 +56,48 @@ playButton.addEventListener('click', function () {
 
 result.style.display = 'none';
 
+//Trims the data and removes any irrelevant meta-data, also gets the sampling rate about the song
+function handleArrayBuffer(musicArrayBuffer) {
+    var musicDataView = new DataView(musicArrayBuffer);
 
+    var frameCount = 0;
+    var tagIndex = 0;
+    var sampleCount = 0;
+
+    var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
+
+    //Skips any frames at the start that dont contain music data
+    var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
+    while (frameType != "frame") {
+        tagIndex++;
+        frameType = mp3Parser.readTags(musicDataView)[tagIndex]._section.type
+    }
+    console.log(mp3Parser.readTags(musicDataView)[tagIndex])
+    var samplingRate = mp3Parser.readTags(musicDataView)[tagIndex].header.samplingRate
+
+    var mp3tags = mp3Parser.readTags(musicDataView)[tagIndex];
+    while (true) {
+        if (mp3tags._section.type === 'frame') {
+            frameCount++;
+            sampleCount = sampleCount + mp3tags._section.sampleLength;
+        } else {
+            //If it doesnt contain music data? TRASH IT!
+            musicArrayBuffer.splice(mp3tags._section.nextFrameIndex - mp3tags._section.sampleLength, mp3tags_section.nextFrameIndex);
+        }
+        mp3tags = mp3Parser.readFrame(musicDataView, mp3tags._section.nextFrameIndex);
+        if (mp3tags == null) {
+            break;
+        }
+    }
+    originalSongBuffer = musicArrayBuffer
+    //Put the data into the audiotag
+    var songBlob = new Blob([musicArrayBuffer], { type: "audio/mpeg3" });
+    audioTag.src = window.URL.createObjectURL(songBlob);
+
+    getMusicData(musicArrayBuffer, sampleCount, samplingRate);
+}
+
+//Loads the trimmed audio-data and filters it appropiately before analyzing it
 var getMusicData = function (musicArrayBuffer, songsize, samplingRate) {
     var musicDataView = new DataView(musicArrayBuffer);
 
@@ -129,25 +170,7 @@ var getMusicData = function (musicArrayBuffer, songsize, samplingRate) {
 };
 
 
-
-
-var fileUpload = document.getElementById("drop_zone");
-
-var uploadFunction = function () {
-
-    var musicFile = fileUpload.files[0];
-    console.log(musicFile);
-
-    //Read the user file into a format that can we can work with, an array buffer
-    var arrayBufferReader = new FileReader();
-    arrayBufferReader.onload = function () {
-        handleArrayBuffer(arrayBufferReader.result);
-    }
-
-    arrayBufferReader.readAsArrayBuffer(musicFile);
-
-}
-
+//Analyzes the song data, calls cb when done
 function analyzeSong(songData, samplingRate, songOptions, cb) {
     var pps;
     var sm;
@@ -197,7 +220,7 @@ function analyzeSong(songData, samplingRate, songOptions, cb) {
 
 
 }
-
+//Draws the sections and peaks
 function drawData(peaks, sections, buffer) {
     var svg = document.querySelector('#svg');
     svg.innerHTML = '';
@@ -262,7 +285,7 @@ function drawData(peaks, sections, buffer) {
 
     result.style.display = 'block';
 };
-
+//Displays information about a particular section
 function drawSection(section, index) {
     sectionDiv = document.createElement("div");
     sectionDiv.addEventListener("click", function () {
@@ -284,46 +307,25 @@ function drawSection(section, index) {
     document.getElementById("sectionAnalysis").appendChild(sectionDiv);
 }
 
-function handleArrayBuffer(musicArrayBuffer) {
-    var musicDataView = new DataView(musicArrayBuffer);
 
-    var frameCount = 0;
-    var tagIndex = 0;
-    var sampleCount = 0;
+//Loads and analyzes user file
+var fileUpload = document.getElementById("drop_zone");
+var uploadFunction = function () {
 
-    var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
+    var musicFile = fileUpload.files[0];
+    console.log(musicFile);
 
-    //Skips any frames at the start that dont contain music data
-    var frameType = mp3Parser.readTags(musicDataView)[0]._section.type;
-    while (frameType != "frame") {
-        tagIndex++;
-        frameType = mp3Parser.readTags(musicDataView)[tagIndex]._section.type
+    //Read the user file into a format that can we can work with, an array buffer
+    var arrayBufferReader = new FileReader();
+    arrayBufferReader.onload = function () {
+        handleArrayBuffer(arrayBufferReader.result);
     }
-    console.log(mp3Parser.readTags(musicDataView)[tagIndex])
-    var samplingRate = mp3Parser.readTags(musicDataView)[tagIndex].header.samplingRate
 
-    var mp3tags = mp3Parser.readTags(musicDataView)[tagIndex];
-    while (true) {
-        if (mp3tags._section.type === 'frame') {
-            frameCount++;
-            sampleCount = sampleCount + mp3tags._section.sampleLength;
-        } else {
-            //If it doesnt contain music data? TRASH IT!
-            musicArrayBuffer.splice(mp3tags._section.nextFrameIndex - mp3tags._section.sampleLength, mp3tags_section.nextFrameIndex);
-        }
-        mp3tags = mp3Parser.readFrame(musicDataView, mp3tags._section.nextFrameIndex);
-        if (mp3tags == null) {
-            break;
-        }
-    }
-    originalSongBuffer = musicArrayBuffer
-    //Put the data into the audiotag
-    var songBlob = new Blob([musicArrayBuffer], { type: "audio/mpeg3" });
-    audioTag.src = window.URL.createObjectURL(songBlob);
+    arrayBufferReader.readAsArrayBuffer(musicFile);
 
-    getMusicData(musicArrayBuffer, sampleCount, samplingRate);
 }
 
+//Loads and analyzes the example song
 function getExampleAudio(){
     var xhr = new XMLHttpRequest();
     xhr.open('GET', window.location.href +  '/exampleSongs/FuriousFreak.mp3', true);
