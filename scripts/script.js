@@ -249,7 +249,7 @@ function drawData(peaks, sections, buffer) {
 
     //Draw the peaks
     console.log(peaks);
-    /*
+    
     peaks.forEach(function(peak) {
         rect = document.createElementNS(svgNS, 'rect');
         rect.setAttributeNS(null, 'x', (100 * peak.position / buffer[0].length) + '%');
@@ -258,7 +258,7 @@ function drawData(peaks, sections, buffer) {
         rect.setAttributeNS(null, 'height', '100%');
         svg.appendChild(rect);
     });
-    */
+  
 
 
     rect = document.createElementNS(svgNS, 'rect');
